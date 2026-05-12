@@ -1,28 +1,26 @@
-# Biblioteca-FastAPI
+# Biblioteca API - Documentacao Tecnica
 
-# Documentacao Geral do Projeto Biblioteca API
+## 1. Objetivo
 
-Este documento descreve todo o projeto atual da API de biblioteca, incluindo estrutura de pastas, dependencias, configuracao, banco de dados, seguranca, models, services e rotas.
+Este documento apresenta a visao tecnica da Biblioteca API, uma API REST desenvolvida com FastAPI para gerenciamento de recursos de biblioteca.
 
-## 1. Visao geral
+O conteudo foi estruturado para uso interno em ambiente corporativo e nao deve conter credenciais, tokens, senhas, dados pessoais reais ou qualquer informacao sensivel. Exemplos de payload usam dados ficticios e placeholders.
 
-O projeto e uma API REST feita com FastAPI para gerenciar recursos de uma biblioteca.
+## 2. Escopo Funcional
 
 Recursos implementados:
 
 - usuarios;
-- login com JWT;
+- autenticacao com JWT;
 - livros;
 - generos;
 - enderecos.
 
-Recursos parcialmente presentes:
+Recursos parcialmente implementados:
 
-- autores possuem model, mas ainda nao possuem rotas nem metodos no service.
+- autores possuem model, mas ainda nao possuem tabela, rotas ou metodos no service.
 
-## 2. Estrutura de arquivos
-
-Estrutura principal:
+## 3. Estrutura do Projeto
 
 ```text
 api/
@@ -46,12 +44,12 @@ api/
   services/
     biblioteca_service.py
 docs/
-  crud_usuarios.md
   projeto_biblioteca_api.md
+  postman_collection_biblioteca_api.json
 requirements.txt
 ```
 
-## 3. Dependencias
+## 4. Dependencias
 
 Arquivo: `requirements.txt`
 
@@ -63,236 +61,176 @@ python-multipart
 aiomysql
 ```
 
-Finalidade de cada dependencia:
+Finalidade:
 
 - `fastapi`: framework principal da API.
-- `uvicorn`: servidor ASGI usado para executar o FastAPI.
-- `python-jose`: biblioteca usada para criar e validar tokens JWT.
-- `python-multipart`: necessario para o `OAuth2PasswordRequestForm` usado no login.
-- `aiomysql`: driver assincrono para conectar a API ao MySQL sem bloquear o event loop.
+- `uvicorn`: servidor ASGI.
+- `python-jose`: criacao e validacao de tokens JWT.
+- `python-multipart`: suporte ao formulario OAuth2 usado no login.
+- `aiomysql`: driver assincrono para conexao com MySQL.
 
-## 4. Execucao do projeto
+## 5. Execucao Local
 
-Com a `.venv` ativada, uma forma comum de iniciar a API e:
+Com a `.venv` ativada, execute:
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn api.main.main:app --reload
 ```
 
-Depois, a documentacao interativa fica disponivel em:
+Documentacao interativa:
 
 ```text
 http://localhost:8000/docs
 ```
 
-## 5. Arquivo principal
+Observacao: ambientes corporativos devem utilizar variaveis de ambiente ou cofre de segredos para configuracoes sensiveis.
+
+## 6. Aplicacao Principal
 
 Arquivo: `api/main/main.py`
 
-Responsabilidade:
+Responsabilidades:
 
 - criar a aplicacao FastAPI;
 - registrar os routers de usuarios, livros e enderecos.
 
-Codigo atual:
+Prefixos registrados:
 
-```python
-from fastapi import FastAPI
-from api.routes.usuario_routes import router as usuario_router
-from api.routes.livro_routes import router as livro_router
-from api.routes.endereco_routes import router as endereco_router
+- `/usuarios`
+- `/livros`
+- `/enderecos`
 
-app = FastAPI()
-
-app.include_router(usuario_router, prefix="/usuarios", tags=["Usuarios"])
-app.include_router(livro_router, prefix="/livros", tags=["Livros"])
-app.include_router(endereco_router, prefix="/enderecos", tags=["Enderecos"])
-```
-
-Prefixos finais:
-
-- rotas de usuarios comecam com `/usuarios`;
-- rotas de livros comecam com `/livros`;
-- rotas de enderecos comecam com `/enderecos`.
-
-## 6. Configuracao do banco
+## 7. Configuracao de Banco de Dados
 
 Arquivo: `api/database/conexao.py`
 
 Responsabilidade:
 
-- criar conexoes com o banco MySQL.
+- criar conexoes assincronas com o banco MySQL.
 
-Codigo atual:
+Variaveis de ambiente esperadas:
 
-```python
-import os
+| Variavel | Descricao | Sensibilidade |
+| --- | --- | --- |
+| `MYSQL_HOST` | Host do banco de dados | Baixa |
+| `MYSQL_PORT` | Porta do banco de dados | Baixa |
+| `MYSQL_USER` | Usuario de conexao | Sensivel |
+| `MYSQL_PASSWORD` | Senha de conexao | Sensivel |
+| `MYSQL_DATABASE` | Nome do banco | Baixa |
 
-import aiomysql
+Diretrizes:
 
+- nao registrar valores reais dessas variaveis em documentos, prints, commits ou issues;
+- nao versionar arquivos `.env` com credenciais reais;
+- usar usuarios de banco com menor privilegio necessario;
+- substituir credenciais padrao antes de qualquer ambiente compartilhado.
 
-async def get_connection():
-    return await aiomysql.connect(
-        host=os.getenv("MYSQL_HOST", "localhost"),
-        port=int(os.getenv("MYSQL_PORT", "3306")),
-        user=os.getenv("MYSQL_USER", "root"),
-        password=os.getenv("MYSQL_PASSWORD", "1234"),
-        database=os.getenv("MYSQL_DATABASE", "biblioteca_api"),
-        autocommit=False,
-    )
-```
-
-Variaveis de ambiente aceitas:
-
-- `MYSQL_HOST`, padrao `localhost`;
-- `MYSQL_PORT`, padrao `3306`;
-- `MYSQL_USER`, padrao `root`;
-- `MYSQL_PASSWORD`, padrao `1234`;
-- `MYSQL_DATABASE`, padrao `biblioteca_api`.
-
-## 7. Banco de dados
+## 8. Banco de Dados
 
 Arquivo: `api/database/biblioteca.sql`
 
-O script cria o banco:
-
-```sql
-CREATE DATABASE IF NOT EXISTS biblioteca_api
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-```
+O script cria o banco e as tabelas principais.
 
 ### Tabela `usuarios`
 
-```sql
-CREATE TABLE IF NOT EXISTS usuarios (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(120) NOT NULL,
-    username VARCHAR(80) NOT NULL UNIQUE,
-    email VARCHAR(150) NOT NULL UNIQUE,
-    senha_hash CHAR(64) NOT NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+Campos principais:
 
-Observacoes:
-
-- `username` e unico.
-- `email` e unico.
-- `senha_hash` guarda a senha em formato SHA-256.
-
-### Tabela `generos`
-
-```sql
-CREATE TABLE IF NOT EXISTS generos (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(80) NOT NULL UNIQUE,
-    disponivel BOOLEAN NOT NULL DEFAULT TRUE,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Tabela `livros`
-
-```sql
-CREATE TABLE IF NOT EXISTS livros (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tipo VARCHAR(120) NOT NULL UNIQUE,
-    data_publicacao DATE NOT NULL,
-    preco DECIMAL(10,2) NOT NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_livros_preco CHECK (preco >= 0),
-    CONSTRAINT chk_livros_data CHECK (data_publicacao <= CURRENT_DATE)
-);
-```
+- `id`
+- `nome`
+- `username`
+- `email`
+- `senha_hash`
+- `criado_em`
 
 Regras:
 
-- `tipo` e unico.
-- `preco` nao pode ser negativo.
+- `username` deve ser unico;
+- `email` deve ser unico;
+- a senha nao deve ser armazenada em texto puro;
+- `senha_hash` nao deve ser retornado por rotas de listagem ou consulta.
+
+### Tabela `generos`
+
+Campos principais:
+
+- `id`
+- `nome`
+- `disponivel`
+- `criado_em`
+
+Regras:
+
+- `nome` deve ser unico;
+- `disponivel` indica se o genero esta ativo para uso.
+
+### Tabela `livros`
+
+Campos principais:
+
+- `id`
+- `tipo`
+- `data_publicacao`
+- `preco`
+- `criado_em`
+
+Regras:
+
+- `tipo` deve ser unico;
+- `preco` nao pode ser negativo;
 - `data_publicacao` nao pode estar no futuro.
 
 ### Tabela `enderecos`
 
-```sql
-CREATE TABLE IF NOT EXISTS enderecos (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    logradouro VARCHAR(150) NOT NULL,
-    numero INT NOT NULL,
-    bairro VARCHAR(100) NOT NULL,
-    cidade VARCHAR(100) NOT NULL,
-    estado CHAR(2) NOT NULL,
-    cep CHAR(8) NOT NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_enderecos_cep CHECK (cep REGEXP '^[0-9]{8}$')
-);
-```
+Campos principais:
 
-Regra:
+- `id`
+- `logradouro`
+- `numero`
+- `bairro`
+- `cidade`
+- `estado`
+- `cep`
+- `criado_em`
 
-- `cep` deve ter 8 digitos numericos.
+Regras:
 
-## 8. Seguranca e JWT
+- `cep` deve possuir 8 digitos numericos;
+- dados de endereco podem ser considerados dados pessoais conforme o contexto de uso e devem ser tratados com cuidado.
+
+## 9. Seguranca e Autenticacao
 
 Arquivo: `api/security/jwt_config.py`
 
 Responsabilidades:
 
-- configurar o esquema OAuth2;
+- configurar OAuth2;
 - criar tokens JWT;
-- validar tokens JWT nas rotas protegidas.
+- validar tokens JWT em rotas protegidas.
 
-Configuracoes atuais:
+Configuracoes relevantes:
 
-```python
-SECRET_KEY = "troque_esta_chave_secreta"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+- algoritmo JWT: `HS256`;
+- tempo de expiracao do token: configurado na aplicacao;
+- chave secreta: deve ser carregada por variavel de ambiente ou cofre de segredos.
+
+Diretrizes obrigatorias:
+
+- nao documentar nem versionar a chave JWT real;
+- nao expor tokens de acesso em logs, prints ou exemplos reais;
+- rotacionar a chave caso ela tenha sido exposta;
+- usar HTTPS em ambientes publicados;
+- manter tokens com tempo de vida limitado.
+
+Exemplo sanitizado de resposta de login:
+
+```json
+{
+  "access_token": "<jwt_token>",
+  "token_type": "bearer"
+}
 ```
 
-O token e obtido em:
-
-```python
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/usuarios/login")
-```
-
-Funcao para criar token:
-
-```python
-def criar_token(dados: dict):
-    dados_para_token = dados.copy()
-    expiracao = datetime.now(timezone.utc) + timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-
-    dados_para_token.update({"exp": expiracao})
-
-    return jwt.encode(dados_para_token, SECRET_KEY, algorithm=ALGORITHM)
-```
-
-Funcao para validar token:
-
-```python
-def verificar_token(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-
-        if username is None:
-            raise HTTPException(status_code=401, detail="Token invalido")
-
-        return username
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token invalido ou expirado")
-```
-
-Rotas protegidas usam:
-
-```python
-usuario: str = Depends(verificar_token)
-```
-
-## 9. Models
+## 10. Models
 
 Os models usam Pydantic e ficam em `api/models`.
 
@@ -300,568 +238,314 @@ Os models usam Pydantic e ficam em `api/models`.
 
 Arquivo: `api/models/usuario_models.py`
 
-Classes:
+Models principais:
 
-```python
-class LoginRequest(BaseModel):
-    username: str
-    senha: str
-```
+- `LoginRequest`
+- `Usuario`
+- `UsuarioCreate`
+- `UsuarioResponse`
+- `UsuarioUpdate`
 
-Observacao:
+Regras:
 
-- Existe no projeto, mas a rota de login usa `OAuth2PasswordRequestForm`.
-
-```python
-class Usuario(BaseModel):
-    nome: str
-    username: str
-    email: str
-```
-
-```python
-class UsuarioCreate(BaseModel):
-    nome: str
-    username: str
-    email: str
-    senha: str
-```
-
-Valida senha com pelo menos 8 caracteres.
-
-```python
-class UsuarioResponse(BaseModel):
-    id: int
-    nome: str
-    username: str
-    email: str
-```
-
-```python
-class UsuarioUpdate(BaseModel):
-    nome: str
-    username: str
-    email: str
-    senha: str
-```
-
-Tambem valida senha com pelo menos 8 caracteres.
+- campos de senha existem apenas para entrada de dados;
+- respostas de usuario nao devem retornar senha nem hash;
+- senha deve obedecer ao tamanho minimo definido no model.
 
 ### Livro
 
 Arquivo: `api/models/livro_models.py`
 
-```python
-class Livro(BaseModel):
-    tipo: str
-    data_publicacao: date
-    preco: float
-```
+Models principais:
 
-Validacao:
+- `Livro`
+- `GeneroRequest`
+
+Regras:
 
 - `data_publicacao` nao pode estar no futuro.
-
-```python
-class GeneroRequest(BaseModel):
-    genero: str
-```
-
-Usado para cadastrar generos pela rota de livros.
 
 ### Genero
 
 Arquivo: `api/models/genero_models.py`
 
-```python
-class Genero(BaseModel):
-    nome: str
-```
+Model principal:
 
-Validacao:
+- `Genero`
+
+Regras:
 
 - remove espacos no inicio e no fim;
-- converte para minusculo.
-
-Observacao:
-
-- Esse model existe, mas as rotas atuais usam `GeneroRequest` de `livro_models.py`.
+- normaliza o valor para minusculo.
 
 ### Endereco
 
 Arquivo: `api/models/endereco_models.py`
 
-```python
-class Endereco(BaseModel):
-    logradouro: str
-    numero: int
-    bairro: str
-    cidade: str
-    estado: str
-    cep: str
-```
+Model principal:
 
-Validacao:
+- `Endereco`
+
+Regras:
 
 - aceita CEP com ou sem hifen;
-- remove `-`;
+- remove caracteres de formatacao;
 - exige 8 digitos numericos.
 
 ### Autor
 
 Arquivo: `api/models/autor_models.py`
 
-```python
-class Autor(BaseModel):
-    nome: str
-```
+Model principal:
+
+- `Autor`
 
 Observacao:
 
-- O model existe, mas nao ha rotas ou metodos de service para autores no estado atual do projeto.
+- ainda nao ha CRUD implementado para autores.
 
-## 10. Service principal
+## 11. Service Principal
 
 Arquivo: `api/services/biblioteca_service.py`
 
-O projeto concentra as regras de acesso ao banco em uma classe:
+Classe principal:
 
 ```python
 class BibliotecaService:
 ```
 
-Esse service e usado pelas rotas:
+Responsabilidades:
 
-```python
-service = BibliotecaService()
-```
-
-Os metodos que acessam o banco sao `async` e devem ser chamados com `await` nas rotas. Isso evita que consultas MySQL bloqueiem o event loop do FastAPI.
+- centralizar acesso ao banco;
+- aplicar normalizacoes antes da persistencia;
+- executar operacoes assincronas com `await`.
 
 ### Usuarios
 
 Metodos:
 
-- `gerar_hash_senha(senha: str)`;
-- `login(usuario, senha)`;
-- `cadastrar_usuario(usuario)`;
-- `listar_usuarios()`;
-- `buscar_usuario(usuario_id: int)`;
-- `atualizar_usuario(usuario_id: int, usuario)`;
-- `deletar_usuario(usuario_id: int)`.
+- `gerar_hash_senha(senha: str)`
+- `login(usuario, senha)`
+- `cadastrar_usuario(usuario)`
+- `listar_usuarios()`
+- `buscar_usuario(usuario_id: int)`
+- `atualizar_usuario(usuario_id: int, usuario)`
+- `deletar_usuario(usuario_id: int)`
 
-Pontos importantes:
+Pontos de seguranca:
 
-- senhas sao convertidas para SHA-256;
+- senhas sao transformadas em hash antes da persistencia;
 - listagem e busca nao retornam `senha_hash`;
-- conflitos de `username` ou `email` retornam `None` em cadastro e atualizacao;
-- deletar e atualizar usam `cursor.rowcount > 0` para saber se o registro existia.
+- conflitos de `username` ou `email` sao tratados pelo service.
 
 ### Generos
 
 Metodos:
 
-- `livros_disponiveis(livro)`;
-- `livros_indisponiveis(livro)`;
-- `adicionar_genero(genero)`.
+- `livros_disponiveis(livro)`
+- `livros_indisponiveis(livro)`
+- `adicionar_genero(genero)`
 
 Observacao:
 
-- Apesar do nome `livros_disponiveis`, o metodo consulta a tabela `generos`.
-- `adicionar_genero` trata duplicidade com `IntegrityError`.
+- apesar do nome `livros_disponiveis`, o metodo consulta a tabela `generos`.
 
 ### Livros
 
 Metodos:
 
-- `cadastro_livro(livro)`;
-- `listar_livros()`;
-- `buscar_livro(livro_id: int)`;
-- `atualizar_livro(livro_id: int, livro)`;
-- `deletar_livro(livro_id: int)`.
+- `cadastro_livro(livro)`
+- `listar_livros()`
+- `buscar_livro(livro_id: int)`
+- `atualizar_livro(livro_id: int, livro)`
+- `deletar_livro(livro_id: int)`
 
 Pontos importantes:
 
-- `tipo` e normalizado com `strip().lower()` no cadastro e atualizacao;
-- duplicidade no cadastro retorna `False`;
-- busca e listagem retornam `id`, `tipo`, `data_publicacao` e `preco`.
+- `tipo` e normalizado no cadastro e na atualizacao;
+- duplicidades sao tratadas no cadastro;
+- busca e listagem retornam apenas os campos publicos do recurso.
 
 ### Enderecos
 
 Metodos:
 
-- `cadastrar_endereco(endereco)`;
-- `listar_enderecos()`;
-- `buscar_endereco(endereco_id: int)`;
-- `atualizar_endereco(endereco_id: int, endereco)`;
-- `deletar_endereco(endereco_id: int)`.
+- `cadastrar_endereco(endereco)`
+- `listar_enderecos()`
+- `buscar_endereco(endereco_id: int)`
+- `atualizar_endereco(endereco_id: int, endereco)`
+- `deletar_endereco(endereco_id: int)`
 
 Pontos importantes:
 
 - `estado` e salvo em maiusculo;
-- `cep` ja chega validado pelo model;
-- cadastro retorna `cursor.lastrowid`.
+- `cep` e validado pelo model;
+- dados de endereco devem ser tratados como potencialmente sensiveis.
 
-## 11. Rotas de usuarios
+## 12. Endpoints
 
-Arquivo: `api/routes/usuario_routes.py`
+### Usuarios
 
-Prefixo no `main.py`:
+Prefixo: `/usuarios`
 
-```text
-/usuarios
-```
+| Metodo | Rota | Autenticacao | Descricao |
+| --- | --- | --- | --- |
+| `POST` | `/usuarios/login` | Publica | Autentica usuario e retorna JWT |
+| `POST` | `/usuarios` | Publica | Cadastra usuario |
+| `GET` | `/usuarios` | JWT | Lista usuarios |
+| `GET` | `/usuarios/{usuario_id}` | JWT | Busca usuario por ID |
+| `PUT` | `/usuarios/{usuario_id}` | JWT | Atualiza usuario |
+| `DELETE` | `/usuarios/{usuario_id}` | JWT | Remove usuario |
 
-### `POST /usuarios/login`
-
-Autentica usuario e retorna token JWT.
-
-Campos:
-
-- `username`;
-- `password`.
-
-Resposta:
+Exemplo sanitizado de cadastro:
 
 ```json
 {
-    "access_token": "token",
-    "token_type": "bearer"
+  "nome": "Usuario Exemplo",
+  "username": "usuario.exemplo",
+  "email": "usuario.exemplo@dominio.local",
+  "senha": "<senha-forte>"
 }
 ```
 
-### `POST /usuarios`
+### Livros e Generos
 
-Cadastra usuario.
+Prefixo: `/livros`
 
-Body:
+| Metodo | Rota | Autenticacao | Descricao |
+| --- | --- | --- | --- |
+| `GET` | `/livros/generos/disponiveis/{genero}` | Publica | Verifica disponibilidade de genero |
+| `POST` | `/livros/generos` | JWT | Adiciona genero |
+| `POST` | `/livros` | JWT | Cadastra livro |
+| `GET` | `/livros` | Publica | Lista livros |
+| `GET` | `/livros/{livro_id}` | Publica | Busca livro por ID |
+| `PUT` | `/livros/{livro_id}` | JWT | Atualiza livro |
+| `DELETE` | `/livros/{livro_id}` | JWT | Remove livro |
+
+Exemplo sanitizado de livro:
 
 ```json
 {
-    "nome": "Maria Silva",
-    "username": "maria",
-    "email": "maria@email.com",
-    "senha": "senha1234"
+  "tipo": "romance",
+  "data_publicacao": "2024-01-10",
+  "preco": 49.9
 }
 ```
 
-Resposta:
+### Enderecos
+
+Prefixo: `/enderecos`
+
+| Metodo | Rota | Autenticacao | Descricao |
+| --- | --- | --- | --- |
+| `POST` | `/enderecos` | JWT | Cadastra endereco |
+| `GET` | `/enderecos` | Publica | Lista enderecos |
+| `GET` | `/enderecos/{endereco_id}` | Publica | Busca endereco por ID |
+| `PUT` | `/enderecos/{endereco_id}` | JWT | Atualiza endereco |
+| `DELETE` | `/enderecos/{endereco_id}` | JWT | Remove endereco |
+
+Exemplo sanitizado de endereco:
 
 ```json
 {
-    "id": 3,
-    "mensagem": "Usuario cadastrado com sucesso"
+  "logradouro": "Rua Exemplo",
+  "numero": 100,
+  "bairro": "Bairro Exemplo",
+  "cidade": "Cidade Exemplo",
+  "estado": "SP",
+  "cep": "00000000"
 }
 ```
 
-### `GET /usuarios`
-
-Lista usuarios.
-
-Requer JWT.
-
-### `GET /usuarios/{usuario_id}`
-
-Busca usuario por ID.
-
-Requer JWT.
-
-### `PUT /usuarios/{usuario_id}`
-
-Atualiza usuario.
-
-Requer JWT.
-
-### `DELETE /usuarios/{usuario_id}`
-
-Remove usuario.
-
-Requer JWT.
-
-## 12. Rotas de livros e generos
-
-Arquivo: `api/routes/livro_routes.py`
-
-Prefixo no `main.py`:
-
-```text
-/livros
-```
-
-### `GET /livros/generos/disponiveis/{genero}`
-
-Verifica se um genero esta disponivel.
-
-Resposta:
-
-```json
-{
-    "genero": "romance",
-    "disponivel": true
-}
-```
-
-Essa rota nao exige token.
-
-### `POST /livros/generos`
-
-Adiciona um genero.
-
-Requer JWT.
-
-Body:
-
-```json
-{
-    "genero": "fantasia"
-}
-```
-
-Resposta quando cadastra:
-
-```json
-{
-    "mensagem": "Genero adicionado com sucesso!!",
-    "usuario": "admin"
-}
-```
-
-Resposta quando ja existe:
-
-```json
-{
-    "mensagem": "Genero ja adicionado!!"
-}
-```
-
-### `POST /livros`
-
-Cadastra livro.
-
-Requer JWT.
-
-Body:
-
-```json
-{
-    "tipo": "romance",
-    "data_publicacao": "2024-01-10",
-    "preco": 49.9
-}
-```
-
-Resposta quando cadastra:
-
-```json
-{
-    "mensagem": "Livro cadastrado com sucesso!!",
-    "usuario": "admin"
-}
-```
-
-Resposta quando ja existe:
-
-```json
-{
-    "mensagem": "Livro ja adicionado"
-}
-```
-
-### `GET /livros`
-
-Lista livros.
-
-Nao exige token.
-
-### `GET /livros/{livro_id}`
-
-Busca livro por ID.
-
-Nao exige token.
-
-Erro quando nao encontra:
-
-```json
-{
-    "detail": "Livro nao encontrado"
-}
-```
-
-### `PUT /livros/{livro_id}`
-
-Atualiza livro.
-
-Requer JWT.
-
-### `DELETE /livros/{livro_id}`
-
-Remove livro.
-
-Requer JWT.
-
-## 13. Rotas de enderecos
-
-Arquivo: `api/routes/endereco_routes.py`
-
-Prefixo no `main.py`:
-
-```text
-/enderecos
-```
-
-### `POST /enderecos`
-
-Cadastra endereco.
-
-Requer JWT.
-
-Body:
-
-```json
-{
-    "logradouro": "Rua A",
-    "numero": 123,
-    "bairro": "Centro",
-    "cidade": "Sao Paulo",
-    "estado": "sp",
-    "cep": "01001-000"
-}
-```
-
-Resposta:
-
-```json
-{
-    "id": 1,
-    "mensagem": "Endereco cadastrado com sucesso",
-    "endereco": {
-        "logradouro": "Rua A",
-        "numero": 123,
-        "bairro": "Centro",
-        "cidade": "Sao Paulo",
-        "estado": "sp",
-        "cep": "01001000"
-    },
-    "usuario": "admin"
-}
-```
-
-### `GET /enderecos`
-
-Lista enderecos.
-
-Nao exige token.
-
-### `GET /enderecos/{endereco_id}`
-
-Busca endereco por ID.
-
-Nao exige token.
-
-### `PUT /enderecos/{endereco_id}`
-
-Atualiza endereco.
-
-Requer JWT.
-
-### `DELETE /enderecos/{endereco_id}`
-
-Remove endereco.
-
-Requer JWT.
-
-## 14. Rotas publicas e protegidas
+## 13. Rotas Publicas e Protegidas
 
 Rotas publicas:
 
-- `POST /usuarios/login`;
-- `POST /usuarios`;
-- `GET /livros/generos/disponiveis/{genero}`;
-- `GET /livros`;
-- `GET /livros/{livro_id}`;
-- `GET /enderecos`;
-- `GET /enderecos/{endereco_id}`.
+- `POST /usuarios/login`
+- `POST /usuarios`
+- `GET /livros/generos/disponiveis/{genero}`
+- `GET /livros`
+- `GET /livros/{livro_id}`
+- `GET /enderecos`
+- `GET /enderecos/{endereco_id}`
 
 Rotas protegidas por JWT:
 
-- `GET /usuarios`;
-- `GET /usuarios/{usuario_id}`;
-- `PUT /usuarios/{usuario_id}`;
-- `DELETE /usuarios/{usuario_id}`;
-- `POST /livros/generos`;
-- `POST /livros`;
-- `PUT /livros/{livro_id}`;
-- `DELETE /livros/{livro_id}`;
-- `POST /enderecos`;
-- `PUT /enderecos/{endereco_id}`;
-- `DELETE /enderecos/{endereco_id}`.
+- `GET /usuarios`
+- `GET /usuarios/{usuario_id}`
+- `PUT /usuarios/{usuario_id}`
+- `DELETE /usuarios/{usuario_id}`
+- `POST /livros/generos`
+- `POST /livros`
+- `PUT /livros/{livro_id}`
+- `DELETE /livros/{livro_id}`
+- `POST /enderecos`
+- `PUT /enderecos/{endereco_id}`
+- `DELETE /enderecos/{endereco_id}`
 
-## 15. Fluxo de uso no Swagger
+## 14. Uso no Swagger
 
 1. Inicie a API.
-2. Acesse:
-
-```text
-http://localhost:8000/docs
-```
-
-3. Cadastre um usuario em `POST /usuarios`.
+2. Acesse `http://localhost:8000/docs`.
+3. Cadastre um usuario de teste com dados ficticios.
 4. Faca login em `POST /usuarios/login`.
-5. Copie o `access_token`.
-6. Clique em `Authorize`.
-7. Informe o token.
-8. Teste as rotas protegidas.
+5. Use o token retornado no botao `Authorize`.
+6. Teste as rotas protegidas.
 
-No Swagger, informe o token no formato:
+Formato do token:
 
 ```text
-Bearer seu_token_aqui
+Bearer <jwt_token>
 ```
 
-## 16. Observacoes importantes sobre o estado atual
+Nunca registrar tokens reais em documentacoes, mensagens, commits ou chamados.
 
-### Senhas iniciais do SQL
+## 15. Controles de Seguranca Recomendados
 
-O script SQL insere:
+Antes de usar em ambiente compartilhado, homologacao ou producao:
 
-```sql
-('Administrador', 'admin', 'admin@email.com', SHA2('1234', 256)),
-('Iago', 'iago', 'iago@email.com', SHA2('senha123', 256))
-```
+- remover credenciais padrao do codigo e do SQL;
+- carregar segredos por variaveis de ambiente ou cofre de segredos;
+- revisar dados seed para garantir que nao contenham pessoas, e-mails ou senhas reais;
+- nao commitar arquivos `.env`, dumps de banco ou colecoes com tokens preenchidos;
+- substituir exemplos reais por placeholders;
+- configurar logs para nao imprimir senhas, hashes, tokens ou payloads sensiveis;
+- avaliar algoritmo de hash de senha mais adequado para producao, como bcrypt, Argon2 ou PBKDF2;
+- aplicar HTTPS nos ambientes publicados;
+- restringir CORS conforme os dominios autorizados;
+- revisar permissoes do usuario de banco.
 
-Mas o model da API exige senha com pelo menos 8 caracteres em cadastro e atualizacao.
+## 16. Observacoes Tecnicas
 
-Impacto:
+### Dados seed
 
-- o usuario `admin` pode existir no banco com senha `1234`;
-- a API nao permite cadastrar novos usuarios com senha menor que 8 caracteres.
+O script SQL pode conter registros iniciais para facilitar testes locais. Esses registros devem usar apenas dados ficticios e senhas temporarias sem relacao com usuarios reais.
 
-### Textos com acentuacao
+Em ambiente corporativo, recomenda-se:
 
-Algumas mensagens aparecem com caracteres quebrados em arquivos atuais, como:
+- nao publicar credenciais seed reais;
+- forcar troca de senha inicial quando aplicavel;
+- remover usuarios seed antes de ambientes produtivos.
 
-```text
-Data nÃ£o pode ser no futuro
-CEP invÃ¡lido
-```
+### Encoding
 
-Isso parece ser um problema de encoding nos arquivos.
+Algumas mensagens do projeto podem apresentar caracteres quebrados por divergencia de encoding. Recomenda-se padronizar os arquivos em UTF-8.
 
-### Autor ainda nao tem CRUD
+### CRUD de autores
 
-Existe:
+Existe o model:
 
 ```text
 api/models/autor_models.py
 ```
 
-Mas ainda nao existe:
+Ainda faltam:
 
 - `api/routes/autor_routes.py`;
 - metodos de autor em `BibliotecaService`;
-- tabela `autores` no SQL atual.
+- tabela `autores` no SQL.
 
-## 17. Validacoes recomendadas
+## 17. Validacoes Recomendadas
 
 Validar sintaxe:
 
@@ -881,7 +565,7 @@ Verificar todas as rotas principais:
 .\.venv\Scripts\python.exe -c "from api.main.main import app; print([(route.path, sorted(route.methods)) for route in app.routes])"
 ```
 
-## 18. Resumo dos endpoints
+## 18. Resumo Executivo dos Endpoints
 
 ### Usuarios
 
